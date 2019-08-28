@@ -11,7 +11,7 @@ else:
     install_requires = ['keras']
 
 setup(name=name,
-      version='1.0.1',
+      version='1.0.2',
       description='Fast & Compact keras blocks and layers for use in mobile applications',
       author='Ferris Kwaijtaal',
       author_email='ferrispc@hotmail.com',

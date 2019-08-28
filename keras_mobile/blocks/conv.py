@@ -60,7 +60,7 @@ def MobileConvBlock(output_filters, latent_filters, ReLU_Max=None, attentionMech
     def stub(x):
         y = Conv2D(output_filters*6, (1,1))(x)
         y = ReLU(max_value=ReLU_Max)(y)
-        y = SeperableConv2D(output_filters=output_filters, ReLU_Max=ReLU_Max, strides=strides)(y)
+        y = SeperableConvBlock(output_filters=output_filters, ReLU_Max=ReLU_Max, strides=strides)(y)
         if attentionMechanism is not None:
             x = attentionMechanism([x,y])
             return x
