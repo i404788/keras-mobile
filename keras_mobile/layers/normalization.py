@@ -38,6 +38,8 @@ class AdaptiveInstanceLayerNormalization(Layer):
         x = inputs
         # if self.light:
         #     x = GlobalAveragePooling2D()(x)
+        
+        # Note: Original had 2 fc before this
         gamma = self.flatten(x)
         gamma = self.fc_gamma(gamma)
         gamma = K.reshape(gamma, (-1,1,1,self.latent_size))
