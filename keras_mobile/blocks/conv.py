@@ -1,5 +1,5 @@
 from keras.layers import Conv2D, BatchNormalization, Input, DepthwiseConv2D, Lambda, Concatenate
-from keras.layers import GlobalAveragePooling2D, Reshape, ReLU
+from keras.layers import GlobalAveragePooling2D, Reshape, ReLU, Add, Dropout
 import keras.backend as K
 from ..functions.mutations import channel_split, channel_shuffle
 
@@ -7,8 +7,8 @@ from ..functions.mutations import channel_split, channel_shuffle
 
 
 def SeperableConvBlock(output_filters=None, ReLU_Max=None, strides=(1,1)):    
-    """
-    DWConv(3x3, bn, relu) => Conv2D(1x1, bn)
+    r"""
+    x->DWConv(3x3)->BN->ReLU(max)->Conv2D(1x1)->BN
 
 
     ```
@@ -23,13 +23,13 @@ def SeperableConvBlock(output_filters=None, ReLU_Max=None, strides=(1,1)):
     def stub(x):
         x = DepthwiseConv2D((3,3), strides=strides, padding='same')(x)
         x = BatchNormalization()(x)
-        if ReLU_Max < 0:
+        if ReLU_Max > 0:
             x = ReLU(max_value=ReLU_Max)(x)
         
         if output_filters is None:
-            x = Conv2D(K.shape(x)[-1], (1,1))(x)
+            x = Conv2D(K.shape(x)[-1], (1,1), padding='same')(x)
         else:
-            x = Conv2D(output_filters, (1,1))(x)
+            x = Conv2D(output_filters, (1,1), padding='same')(x)
         x = BatchNormalization()(x)
         return x
     return stub
@@ -38,8 +38,8 @@ def SeperableConvBlock(output_filters=None, ReLU_Max=None, strides=(1,1)):
 def MobileConvBlock(output_filters, latent_filters=None, ReLU_Max=None, attentionMechanism=None, strides=(1,1)):
     r"""
     ```
-       |---------------------------------------------------------------------\
-     x => Conv(1x1, f: 6n, relu) -> DWConv(3x3, bn, relu) => Conv2D(1x1, bn) =?> attention
+      /-------------------------------------------\
+     x->Conv(1x1,lat)->ReLU->{SeperableConvBlock}-=?>skip
     ```
 
     ```
@@ -71,7 +71,7 @@ def MobileConvBlock(output_filters, latent_filters=None, ReLU_Max=None, attentio
     def stub(x):
         if latent_filters is None:
             latent_filters = K.int_shape(x)[-1]
-        y = Conv2D(latent_filters, (1,1))(x)
+        y = Conv2D(latent_filters, (1,1), padding='same')(x)
         y = ReLU(max_value=ReLU_Max)(y)
         y = SeperableConvBlock(output_filters=output_filters, ReLU_Max=ReLU_Max, strides=strides)(y)
         if attentionMechanism is not None:
@@ -107,20 +107,19 @@ def GroupConv(in_channels, out_channels, groups, kernel=1, stride=1, name=''):
 def ShuffleBasic(out_channels, bottleneck_factor):
     r"""
     ```
-            /-<x>->Conv(1x1,bn,relu)->DWConv(3x3,bn)->Conv(1x1,bn,relu)-\
-    <x>->ChSplit                                                      Concat(axis=-1)->ChShuffle
-            |-<c_hat>---------------------------------------------------/
+          /->Conv(1x1,BN,RelU)->{SeperableConvBlock}-\
+    x->ChSplit------------------------------------Concat(axis=-1)->ChShuffle
     ```
     """
     def stub(x):
         c_hat, c = channel_split(x)
         x = c
 
-        bottleneck_channels = int(out_channels * bottleneck_factor)
+        bottleneck_channels = K.int_shape(x)[-1]
         x = Conv2D(bottleneck_channels, (1,1), padding='same')(x)
         x = BatchNormalization()(x)
         x = ReLU()(x)
-        x = SeperableConvBlock(bottleneck_channels, -1)
+        x = SeperableConvBlock(bottleneck_channels, -1)(x)
         x = ReLU()(x)
         x = Concatenate(axis=-1)([x, c_hat])
         x = Lambda(channel_shuffle)(x)
@@ -130,9 +129,8 @@ def ShuffleBasic(out_channels, bottleneck_factor):
 def ShuffleStride(out_channels, bottleneck_factor, strides=(2,2)):
     r"""
     ```
-        /-<y>->Conv(1x1,bn,relu)->DWConv(3x3,bn,strides)->Conv(1x1,bn,relu)-\
-      <x>                                                                  Concat(axis=-1)->ChShuffle
-        |-<z>->DWConv(3x3,bn,strides)-------------------->Conv(1x1,bn,rely)-/
+     /-Conv(1x1,bn,relu)->{SeperableConvBlock}->ReLU-\
+    x-{SeperableConvBlock}->ReLU---------------->Concat(axis=-1)->ChShuffle
     ```
     """
     def stub(x):
@@ -143,10 +141,53 @@ def ShuffleStride(out_channels, bottleneck_factor, strides=(2,2)):
         y = ReLU()(y)
 
         z = SeperableConvBlock(bottleneck_channels, ReLU_Max=-1, strides=strides)(x)
-        z = ReLU()(x)
+        z = ReLU()(z)
 
         ret = Concatenate(axis=-1)([y,z])
         ret = Lambda(channel_shuffle)(ret)
 
         return ret
+    return stub
+
+def ResnetBlock():
+    r"""
+    ```
+     /->BN->ReLU->Conv(k=3)->BN->ReLU->Conv(k=1)-\
+    x--------------------------------------------->Add
+    ```
+    """
+    def stub(x):
+        dim = K.int_shape(x)[-1]
+        y = BatchNormalization()(x)
+        y = ReLU()(y)
+        y = Conv2D(dim, 3, padding='same')(y)
+        y = BatchNormalization()(y)
+        y = ReLU()(y)
+        y = Conv2D(dim, 1, padding='same')(y)
+        return Add()([x, y])
+    return stub
+
+def ApesBlock(k, r):
+    r"""
+    ```
+     /->BN->ReLU->Conv(k=1)->BN->ReLU->Conv(k=k)->BN-\
+    x->BN---------------------------------------------->Add->ReLU->Dropout(r)
+    ```
+    """
+    def stub(x):
+        M = K.int_shape(x)[-1]
+
+        y = BatchNormalization()(x)
+
+        x = BatchNormalization()(x)
+        x = ReLU()(x)
+        x = Conv2D(M, (1,1), padding='same')(x)
+        x = BatchNormalization()(x)
+        x = ReLU()(x)
+        x = Conv2D(M, (k,k), padding='same')(x)
+        x = BatchNormalization()(x)
+
+        x = Add()([x, y])
+        x = ReLU()(x)
+        return Dropout(r)(x)
     return stub

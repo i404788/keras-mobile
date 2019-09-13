@@ -1,3 +1,9 @@
+# Repo specific
+logs
+.vscode
+# Don't include large model overviews
+*.png 
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
