@@ -17,7 +17,7 @@ def SeperableConvBlock(output_filters=None, ReLU_Max=None, strides=(1,1)):
     Also used in MobileConvBlock as subblock
     """
     def stub(x):
-        x = DepthwiseConv2D((3,3))(x)
+        x = DepthwiseConv2D((3,3), padding='same')(x)
         x = ReLU(max_value=ReLU_Max)(x)
         x = BatchNormalization()(x)
         
@@ -58,10 +58,12 @@ def MobileConvBlock(output_filters, latent_filters, ReLU_Max=None, attentionMech
     From MnasNet https://arxiv.org/pdf/1807.11626.pdf (When RELU)
     """
     def stub(x):
-        y = Conv2D(output_filters*6, (1,1))(x)
+        y = Conv2D(latent_filters, (1,1))(x)
         y = ReLU(max_value=ReLU_Max)(y)
         y = SeperableConvBlock(output_filters=output_filters, ReLU_Max=ReLU_Max, strides=strides)(y)
         if attentionMechanism is not None:
+            if strides is not (1,1):
+                print("Strides can't be used with attention")
             x = attentionMechanism([x,y])
             return x
         else:
