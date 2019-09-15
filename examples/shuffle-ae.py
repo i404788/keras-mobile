@@ -1,3 +1,8 @@
+from numpy.random import seed
+seed(1)
+from tensorflow import set_random_seed
+set_random_seed(2)
+
 from keras_mobile.blocks.conv import SeperableConvBlock, MobileConvBlock, ApesBlock, ResnetBlock, ShuffleStride, ShuffleBasic
 from keras_mobile.layers.normalization import InstanceLayerNormalization
 from keras_mobile.callbacks.tensorboard import TensorBoardImageComparison
@@ -17,26 +22,28 @@ def get_model():
     x = Conv2D(32, (3,3), padding='same')(x)
     for i in range(3):
         x = ShuffleBasic(32//(2 ** i), 0.9)(x)
-        x = InstanceLayerNormalization()(x)
         x = ShuffleStride(32//(2 ** i), 0.9)(x)
-        x = InstanceLayerNormalization()(x)
         x = ReLU()(x)
     
     x = Conv2D(8, (3,3), padding='same')(x)
 
     encoded = x
     # at this point the representation is (4, 4, 8) i.e. 128-dimensional
-    for i in reversed(range(3)):
-        x = ApesBlock(3, 0.8)(x)
-        x = UpSampling2D()(x)
-
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(encoded)
+    x = UpSampling2D((2, 2))(x)
+    x = Conv2D(8, (3, 3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 2))(x)
+    x = Conv2D(16, (3, 3), activation='relu', padding='same')(x)
+    x = UpSampling2D((2, 2))(x)
     decoded = Conv2D(3, (3, 3), activation='sigmoid', padding='same')(x)
-    return Model(inp, decoded), inp, encoded, decoded
+
+    autoencoder = Model(inp, decoded)
+    return autoencoder, inp, encoded, decoded
 
 model = get_model()[0]
 model.summary()
 model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])
-plot_model(model, to_file='mobile-cae.png', show_shapes=True)
+plot_model(model, to_file='shuffle-ae.png', show_shapes=True)
 
 (x_train, y_train), (x_test, y_test) = cifar10.load_data()
 print('x_train shape:', x_train.shape)

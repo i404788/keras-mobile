@@ -3,21 +3,13 @@ from setuptools import find_packages
 import os
 
 
-if os.environ.get('USE_TF_KERAS', None) == '1':
-    name = 'tf_keras_mobile'
-    install_requires = []
-else:
-    name = 'keras_mobile'
-    install_requires = ['keras']
-
-setup(name=name,
+setup(name='keras_mobile',
       version='1.0.2',
       description='Fast & Compact keras blocks and layers for use in mobile applications',
       author='Ferris Kwaijtaal',
       author_email='ferrispc@hotmail.com',
       url='https://github.com/i404788/keras-mobile',
       license='MIT',
-      install_requires=install_requires,
       classifiers=[
           'Intended Audience :: Developers',
           'Intended Audience :: Education',

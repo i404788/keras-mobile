@@ -1,6 +1,7 @@
 import tensorflow as tf
 import keras 
 import numpy as np
+from pillow import Image
 
 def make_image(tensor):
     """
@@ -8,7 +9,6 @@ def make_image(tensor):
     Copied from https://github.com/lanpa/tensorboard-pytorch/
     """
     tensor = (tensor[0] * 255).astype('uint8')
-    from PIL import Image
     height, width, channel = tensor.shape
     image = Image.fromarray(tensor)
     import io

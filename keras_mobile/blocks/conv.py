@@ -6,7 +6,7 @@ from ..functions.mutations import channel_split, channel_shuffle
 # Emulate class behaviour for parameterization
 
 
-def SeperableConvBlock(output_filters=None, ReLU_Max=None, strides=(1,1)):    
+def SeperableConvBlock(output_filters=None, ReLU_Max=None, strides=(1, 1)):
     r"""
     x->DWConv(3x3)->BN->ReLU(max)->Conv2D(1x1)->BN
 
@@ -21,21 +21,20 @@ def SeperableConvBlock(output_filters=None, ReLU_Max=None, strides=(1,1)):
     Also used in MobileConvBlock as subblock
     """
     def stub(x):
-        x = DepthwiseConv2D((3,3), strides=strides, padding='same')(x)
+        x = DepthwiseConv2D((3, 3), strides=strides, padding='same')(x)
         x = BatchNormalization()(x)
-        if ReLU_Max > 0:
-            x = ReLU(max_value=ReLU_Max)(x)
-        
+        x = ReLU(max_value=ReLU_Max)(x)
+
         if output_filters is None:
-            x = Conv2D(K.shape(x)[-1], (1,1), padding='same')(x)
+            x = Conv2D(K.shape(x)[-1], (1, 1), padding='same')(x)
         else:
-            x = Conv2D(output_filters, (1,1), padding='same')(x)
+            x = Conv2D(output_filters, (1, 1), padding='same')(x)
         x = BatchNormalization()(x)
         return x
     return stub
 
 
-def MobileConvBlock(output_filters, latent_filters=None, ReLU_Max=None, attentionMechanism=None, strides=(1,1)):
+def MobileConvBlock(output_filters, latent_filters, ReLU_Max=None, attentionMechanism=None, strides=(1, 1)):
     r"""
     ```
       /-------------------------------------------\
@@ -44,7 +43,7 @@ def MobileConvBlock(output_filters, latent_filters=None, ReLU_Max=None, attentio
 
     ```
     output_filters: int, size of last axis output
-    latent_filters: int, size of filters at first Conv 1x1 (see MnasNet), (default: shape[-1])
+    latent_filters: int, size of filters at first Conv 1x1 (see MnasNet), If None shape[-1] is used
     - *_filters is generally 'k * shape[-1]' as expansion factor
     ReLU_Max: float, max value as output of a ReLU in this block
     attentionMechanism: def, a function combining 2 equi-shaped tensors (e.g. keras.layers.add)
@@ -69,15 +68,16 @@ def MobileConvBlock(output_filters, latent_filters=None, ReLU_Max=None, attentio
     From MnasNet https://arxiv.org/pdf/1807.11626.pdf (When RELU)
     """
     def stub(x):
-        if latent_filters is None:
-            latent_filters = K.int_shape(x)[-1]
-        y = Conv2D(latent_filters, (1,1), padding='same')(x)
+        # if latent_filters is None:
+        #     latent_filters = K.int_shape(x)[-1]
+        y = Conv2D(latent_filters, (1, 1), padding='same')(x)
         y = ReLU(max_value=ReLU_Max)(y)
-        y = SeperableConvBlock(output_filters=output_filters, ReLU_Max=ReLU_Max, strides=strides)(y)
+        y = SeperableConvBlock(output_filters=output_filters,
+                               ReLU_Max=ReLU_Max, strides=strides)(y)
         if attentionMechanism is not None:
-            if strides is not (1,1):
+            if strides is not (1, 1):
                 print("Strides can't be used with attention")
-            x = attentionMechanism([x,y])
+            x = attentionMechanism([x, y])
             return x
         else:
             return y
@@ -88,7 +88,7 @@ def GroupConv(in_channels, out_channels, groups, kernel=1, stride=1, name=''):
     def stub(x):
         if groups == 1:
             return Conv2D(filters=out_channels, kernel_size=kernel, padding='same',
-                        use_bias=False, strides=stride, name=name)(x)
+                          use_bias=False, strides=stride, name=name)(x)
 
         # number of intput channels per group
         ig = in_channels // groups
@@ -98,11 +98,13 @@ def GroupConv(in_channels, out_channels, groups, kernel=1, stride=1, name=''):
 
         for i in range(groups):
             offset = i * ig
-            group = Lambda(lambda z: z[:, :, :, offset:offset + ig], name='%s/g%d_slice' % (name, i))(x)
+            group = Lambda(
+                lambda z: z[:, :, :, offset:offset + ig], name='%s/g%d_slice' % (name, i))(x)
             group_list.append(Conv2D(int(0.5 + out_channels / groups), kernel_size=kernel, strides=stride,
-                                    use_bias=False, padding='same', name='%s_/g%d' % (name, i))(group))
+                                     use_bias=False, padding='same', name='%s_/g%d' % (name, i))(group))
         return Concatenate(name='%s/concat' % name)(group_list)
     return stub
+
 
 def ShuffleBasic(out_channels, bottleneck_factor):
     r"""
@@ -116,7 +118,7 @@ def ShuffleBasic(out_channels, bottleneck_factor):
         x = c
 
         bottleneck_channels = K.int_shape(x)[-1]
-        x = Conv2D(bottleneck_channels, (1,1), padding='same')(x)
+        x = Conv2D(bottleneck_channels, (1, 1), padding='same')(x)
         x = BatchNormalization()(x)
         x = ReLU()(x)
         x = SeperableConvBlock(bottleneck_channels, -1)(x)
@@ -126,7 +128,8 @@ def ShuffleBasic(out_channels, bottleneck_factor):
         return x
     return stub
 
-def ShuffleStride(out_channels, bottleneck_factor, strides=(2,2)):
+
+def ShuffleStride(out_channels, bottleneck_factor, strides=(2, 2)):
     r"""
     ```
      /-Conv(1x1,bn,relu)->{SeperableConvBlock}->ReLU-\
@@ -135,19 +138,22 @@ def ShuffleStride(out_channels, bottleneck_factor, strides=(2,2)):
     """
     def stub(x):
         bottleneck_channels = int(out_channels * bottleneck_factor)
-        y = Conv2D(bottleneck_channels, kernel_size=(1,1), padding='same')(x)
+        y = Conv2D(bottleneck_channels, kernel_size=(1, 1), padding='same')(x)
         y = ReLU()(y)
-        y = SeperableConvBlock(bottleneck_channels, ReLU_Max=-1, strides=strides)(y)
+        y = SeperableConvBlock(bottleneck_channels,
+                               ReLU_Max=-1, strides=strides)(y)
         y = ReLU()(y)
 
-        z = SeperableConvBlock(bottleneck_channels, ReLU_Max=-1, strides=strides)(x)
+        z = SeperableConvBlock(bottleneck_channels,
+                               ReLU_Max=-1, strides=strides)(x)
         z = ReLU()(z)
 
-        ret = Concatenate(axis=-1)([y,z])
+        ret = Concatenate(axis=-1)([y, z])
         ret = Lambda(channel_shuffle)(ret)
 
         return ret
     return stub
+
 
 def ResnetBlock():
     r"""
@@ -167,6 +173,7 @@ def ResnetBlock():
         return Add()([x, y])
     return stub
 
+
 def ApesBlock(k, r):
     r"""
     ```
@@ -181,10 +188,10 @@ def ApesBlock(k, r):
 
         x = BatchNormalization()(x)
         x = ReLU()(x)
-        x = Conv2D(M, (1,1), padding='same')(x)
+        x = Conv2D(M, (1, 1), padding='same')(x)
         x = BatchNormalization()(x)
         x = ReLU()(x)
-        x = Conv2D(M, (k,k), padding='same')(x)
+        x = Conv2D(M, (k, k), padding='same')(x)
         x = BatchNormalization()(x)
 
         x = Add()([x, y])
