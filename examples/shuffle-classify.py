@@ -32,28 +32,28 @@ def get_model():
     return model
 
 
+if if __name__ == "__main__":
+    model = get_model()
+    model.summary()
+    # Compile the model
+    model.compile(loss='categorical_crossentropy',
+                  optimizer='adam',
+                  metrics=['accuracy'])
+    plot_model(model, to_file='shuffle-classify.png', show_shapes=True)
 
-model = get_model()
-model.summary()
-# Compile the model
-model.compile(loss='categorical_crossentropy',
-              optimizer='adam',
-              metrics=['accuracy'])
-plot_model(model, to_file='shuffle-classify.png', show_shapes=True)
 
+    (X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
 
-(X_train, Y_train), (X_test, Y_test) = cifar10.load_data()
+    # Train the model
+    model.fit(X_train / 255.0, to_categorical(Y_train),
+              batch_size=64,
+              shuffle=True,
+              epochs=50,
+              validation_data=(X_test / 255.0, to_categorical(Y_test)),
+              callbacks=[EarlyStopping(min_delta=0.001, patience=5),
+                TensorBoard(log_dir='logs/shuffle-classify', histogram_freq=5)])
 
-# Train the model
-model.fit(X_train / 255.0, to_categorical(Y_train),
-          batch_size=64,
-          shuffle=True,
-          epochs=50,
-          validation_data=(X_test / 255.0, to_categorical(Y_test)),
-          callbacks=[EarlyStopping(min_delta=0.001, patience=5),
-            TensorBoard(log_dir='logs/shuffle-classify', histogram_freq=5)])
+    # Evaluate the model
+    scores = model.evaluate(X_test / 255.0, to_categorical(Y_test))
 
-# Evaluate the model
-scores = model.evaluate(X_test / 255.0, to_categorical(Y_test))
-
-print('Shuffle(b=%.1f) CIFAR-10 Accuracy: %.3f, Params: %d' % (hp_bottleneck_size, scores[1], model.count_params()))
+    print('Shuffle(b=%.1f) CIFAR-10 Accuracy: %.3f, Params: %d' % (hp_bottleneck_size, scores[1], model.count_params()))

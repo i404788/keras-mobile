@@ -34,7 +34,7 @@ def SeperableConvBlock(output_filters=None, ReLU_Max=None, strides=(1, 1)):
     return stub
 
 
-def MobileConvBlock(output_filters, latent_filters, ReLU_Max=None, attentionMechanism=None, strides=(1, 1)):
+def MobileConvBlock(output_filters, latent_filters, ReLU_Max=None, skipFunction=None, strides=(1, 1)):
     r"""
     ```
       /-------------------------------------------\
@@ -46,22 +46,22 @@ def MobileConvBlock(output_filters, latent_filters, ReLU_Max=None, attentionMech
     latent_filters: int, size of filters at first Conv 1x1 (see MnasNet), If None shape[-1] is used
     - *_filters is generally 'k * shape[-1]' as expansion factor
     ReLU_Max: float, max value as output of a ReLU in this block
-    attentionMechanism: def, a function combining 2 equi-shaped tensors (e.g. keras.layers.add)
+    skipFunction: def, a function combining 2 equi-shaped tensors (e.g. keras.layers.add)
     strides: int/tuple-int, same as in keras.layers.Conv2D
     ```
 
-    attentionMechanism (if not None) is an keras function with the same interface as keras.layers.{add|multiply}
+    skipFunction (if not None) is an keras function with the same interface as keras.layers.{add|multiply}
     if None there will be no attention added
 
     Stride block from MobileNetV2 (fixed )
     ```
-    Strides=1: ReLU_Max=6, attentionMechanism=keras.layers.add
+    Strides=1: ReLU_Max=6, skipFunction=keras.layers.add
     Strides=2: ReLU_Max=6, strides=(2,2)
     ```
 
     MBConv6 from MnasNet
     ```
-    latent_filters=6*output_filters, attentionMechanism=keras.layers.add
+    latent_filters=6*output_filters, skipFunction=keras.layers.add
     ```
 
     From MobileNetV2 https://arxiv.org/pdf/1801.04381.pdf (When RELU6)
@@ -74,10 +74,10 @@ def MobileConvBlock(output_filters, latent_filters, ReLU_Max=None, attentionMech
         y = ReLU(max_value=ReLU_Max)(y)
         y = SeperableConvBlock(output_filters=output_filters,
                                ReLU_Max=ReLU_Max, strides=strides)(y)
-        if attentionMechanism is not None:
+        if skipFunction is not None:
             if strides is not (1, 1):
                 print("Strides can't be used with attention")
-            x = attentionMechanism([x, y])
+            x = skipFunction([x, y])
             return x
         else:
             return y
@@ -121,7 +121,7 @@ def ShuffleBasic(out_channels, bottleneck_factor):
         x = Conv2D(bottleneck_channels, (1, 1), padding='same')(x)
         x = BatchNormalization()(x)
         x = ReLU()(x)
-        x = SeperableConvBlock(bottleneck_channels, -1)(x)
+        x = SeperableConvBlock(bottleneck_channels)(x)
         x = ReLU()(x)
         x = Concatenate(axis=-1)([x, c_hat])
         x = Lambda(channel_shuffle)(x)
@@ -141,11 +141,11 @@ def ShuffleStride(out_channels, bottleneck_factor, strides=(2, 2)):
         y = Conv2D(bottleneck_channels, kernel_size=(1, 1), padding='same')(x)
         y = ReLU()(y)
         y = SeperableConvBlock(bottleneck_channels,
-                               ReLU_Max=-1, strides=strides)(y)
+                               ReLU_Max=None, strides=strides)(y)
         y = ReLU()(y)
 
         z = SeperableConvBlock(bottleneck_channels,
-                               ReLU_Max=-1, strides=strides)(x)
+                               ReLU_Max=None, strides=strides)(x)
         z = ReLU()(z)
 
         ret = Concatenate(axis=-1)([y, z])

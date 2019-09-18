@@ -2,7 +2,6 @@ from keras.layers import Layer
 from keras.initializers import Ones
 from keras.constraints import MinMaxNorm
 import keras.backend as K
-import tensorflow as tf
 
 
 class ScalarSwish(Layer):

@@ -14,6 +14,7 @@ Fast &amp; Compact keras blocks and layers for use in mobile applications
 * `ResnetBlock`
 * `ApesBlock` from ApesNet
 * `VectorQuantizer` from VQ-VAE
+* `TripletLossNaive` and `LosslessTripletLoss` for sparse embedding/zero-shot classification
 
 ### Current Namespaces:
 * `keras_mobile.blocks.conv.{SeperableConvBlock|MobileConvBlock|GroupConv|ShuffleBasic|ShuffleStride|ResnetBlock|ApesBlock}`
@@ -22,6 +23,7 @@ Fast &amp; Compact keras blocks and layers for use in mobile applications
 * `keras_mobile.layers.conv.{VectorQuantizer}`
 * `keras_mobile.functions.activations.{Swish}`
 * `keras_mobile.functions.mutations.{channel_split|channel_shuffle}`
+* `keras_mobile.functions.loss.{TripletLossNaive|LosslessTripletLoss}`
 
 ### Pre-made models:
 All models are in `examples/`, on execution a model graph will be generated as PNG 
@@ -42,6 +44,14 @@ Mobile (b=1.5)  CIFAR-10    0.664       13030
 Feel free to improve these models, and create an PR. Changes are welcome as long is it's not a great cost on complexity or params count.
 
 ### Notes:
+#### Inference
+You can use [keras-to-tensorflow](https://github.com/amir-abdi/keras_to_tensorflow) and `model.save("model.h5")` to accelerate and compress the model for inference.
+
+#### Tensorflow Backend
+In some modules tensorflow is used to fill in gaps from the keras abstracted backend.
+So it is preferred to use the tensorflow backend, PRs to resolve these limitations are welcome.
+
+#### Block interface
 Blocks are defined as `def(config) -> ( def(tensor) -> tensor )`, unlike layers these can be reused without sharing weights.
 
 For example:

@@ -26,7 +26,7 @@ def get_model():
         x = MobileConvBlock(filters, int(filters*hp_bottleneck_size), strides=(2,2))(x)
         x = BatchNormalization()(x)
         x = Dropout(0.2)(x)
-        x = MobileConvBlock(filters, int(filters*hp_bottleneck_size), attentionMechanism=add)(x)
+        x = MobileConvBlock(filters, int(filters*hp_bottleneck_size), skipFunction=add)(x)
         x = BatchNormalization()(x)
         x = ReLU()(x)
 
