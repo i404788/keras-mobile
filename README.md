@@ -26,20 +26,21 @@ Fast &amp; Compact keras blocks and layers for use in mobile applications
 * `keras_mobile.functions.loss.{TripletLossNaive|LosslessTripletLoss}`
 
 ### Pre-made models:
-All models are in `examples/`, on execution a model graph will be generated as PNG 
+All models are in `examples/`, on execution a model graph will be generated as PNG.
 The accuracy in our benchmark is the best validation accuracy with the script run as is.
 We allow 50 epochs (batch size of 32), with early stopping (p=5) and default Adam optimizer.
 ```
 Classify
-Model           Dataset     Accuracy    Params
+Model               Dataset     Accuracy    Params
 
-Baseline        CIFAR-10    0.797       776394
+Baseline            CIFAR-10    0.797       776394
 
-Shuffle(b=0.9)  CIFAR-10    0.721       13270
-Shuffle(b=1.5)  CIFAR-10    0.789       27576
-Shuffle(b=2.0)  CIFAR-10    0.804       42754
+Shuffle(b=.9)       CIFAR-10    0.721       13270
+Shuffle(b=1.5)      CIFAR-10    0.789       27576
+Shuffle(b=2.)       CIFAR-10    0.804       42754
+Shuffle(b=10,d=.2)  CIFAR-10    0.829       743650
 
-Mobile (b=1.5)  CIFAR-10    0.664       13030
+Mobile (b=1.5)      CIFAR-10    0.664       13030
 ```
 Feel free to improve these models, and create an PR. Changes are welcome as long is it's not a great cost on complexity or params count.
 
