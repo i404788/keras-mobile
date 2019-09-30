@@ -14,7 +14,7 @@ Fast &amp; Compact keras blocks and layers for use in mobile applications
 * `ResnetBlock`
 * `ApesBlock` from ApesNet
 * `VectorQuantizer` from VQ-VAE
-* `TripletLossNaive` and `LosslessTripletLoss` for sparse embedding/zero-shot classification
+* `TripletLossNaive` and `LosslessTripletLoss` for sparse embedding/single-shot classification
 
 ### Current Namespaces:
 * `keras_mobile.blocks.conv.{SeperableConvBlock|MobileConvBlock|GroupConv|ShuffleBasic|ShuffleStride|ResnetBlock|ApesBlock}`

@@ -4,7 +4,7 @@ import os
 
 
 setup(name='keras_mobile',
-      version='1.0.2',
+      version='1.0.3',
       description='Fast & Compact keras blocks and layers for use in mobile applications',
       author='Ferris Kwaijtaal',
       author_email='ferrispc@hotmail.com',
