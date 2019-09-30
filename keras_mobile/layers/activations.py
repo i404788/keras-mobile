@@ -2,6 +2,7 @@ from keras.layers import Layer
 from keras.initializers import Ones
 from keras.constraints import MinMaxNorm
 import keras.backend as K
+import tensorflow as tf
 
 
 class ScalarSwish(Layer):
@@ -37,4 +38,23 @@ class MatrixSwish(Layer):
 
     def compute_output_shape(self, input_shape):
         return input_shape
+
+class cRelu(Layer):
+    def __init__(self, **kwargs):
+        super(cRelu, self).__init__(**kwargs)
+
+    def build(self, input_shape):
+        super(cRelu, self).build(input_shape)
+
+    def call(self, x):
+        return tf.nn.crelu(x)
+
+    def compute_output_shape(self, input_shape):
+        """
+        All axis of output_shape, except the last one,
+        coincide with the input shape.
+        The last one is twice the size of the corresponding input 
+        as it's the axis along which the two relu get concatenated.
+        """
+        return (*input_shape[:-1], input_shape[-1]*2)
  

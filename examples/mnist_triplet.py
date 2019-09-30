@@ -39,10 +39,6 @@ def get_training_model(classifier, N=10):
     return model
 
 
-def euclid_distance(a, b):
-    return K.sqrt(K.sum(K.square(a - b), axis=-1))
-
-
 def generate_triplet(x, y,  ap_pairs=10, an_pairs=10):
     data_xy = tuple([x, y])
 
@@ -128,7 +124,7 @@ if __name__ == "__main__":
     x_train, y_train, x_test, y_test = prepare_dataset()
 
     b_size = 32
-    model.fit(x_train, y_train, batch_size=b_size, epochs=500, callbacks=[
+    model.fit(x_train, y_train, batch_size=b_size, epochs=50, callbacks=[
               TensorBoardModelEmbedding('logs', 5, _model, x_test[:500], y_test[:500], True)])
 
     # Check tensorboard for results

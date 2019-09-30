@@ -9,3 +9,6 @@ def Mish():
   def stub(x):
     return x*K.tanh(K.softplus(x))
   return stub
+
+def log_softmax(x, dim=-1):
+  return x - K.logsumexp(x, axis=dim)

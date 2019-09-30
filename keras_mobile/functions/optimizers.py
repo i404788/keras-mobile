@@ -2,7 +2,7 @@ from keras.optimizers import Optimizer
 from keras import backend as K
 import tensorflow as tf
 
-
+# by Somshubra Majumdar (MIT License, 2019)
 class LAMBOptimizer(Optimizer):
     """LAMBOptimizer optimizer.
     Default parameters follow those provided in the original paper.
@@ -95,7 +95,7 @@ class LAMBOptimizer(Optimizer):
         base_config = super(LAMBOptimizer, self).get_config()
         return dict(list(base_config.items()) + list(config.items()))
 
-
+# by Zhao HG (MIT License, 2019)
 class RAdam(Optimizer):
     """RAdam optimizer.
 

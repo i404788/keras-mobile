@@ -73,7 +73,6 @@ class TensorBoardImageComparison(keras.callbacks.Callback):
         writer.add_summary(org_summary, epoch)
         writer.close()
 
-        return
 
 
 class TensorBoardModelEmbedding(keras.callbacks.Callback):

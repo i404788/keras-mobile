@@ -1,6 +1,7 @@
 from keras.layers import Lambda
 import keras.backend as K
 
+# by opconty (MIT License, 2018)
 def channel_split(x, name=''):
     # equipartition
     in_channles = x.shape.as_list()[-1]
@@ -9,6 +10,7 @@ def channel_split(x, name=''):
     c = Lambda(lambda z: z[:, :, :, ip:])(x)
     return c_hat, c
 
+# by scheckmedia (MIT License, 2017)
 def channel_shuffle(x):
     height, width, channels = x.shape.as_list()[1:]
     channels_per_split = channels // 2

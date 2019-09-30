@@ -79,6 +79,7 @@ def BPRTripletLoss(N = 3):
         return K.mean(loss)
     return stub
 
+# by marcolivierarsenault
 def LosslessTripletLoss(N = 3, beta = 3, epsilon=1e-8):
     """  
     NOTE: In testing this seems to perform worse than Naive euclidean triplet loss
