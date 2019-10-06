@@ -1,5 +1,6 @@
 from keras.layers import Lambda
 import keras.backend as K
+from math import ceil
 
 # by opconty (MIT License, 2018)
 def channel_split(x, name=''):
@@ -18,3 +19,24 @@ def channel_shuffle(x):
     x = K.permute_dimensions(x, (0,1,2,4,3))
     x = K.reshape(x, [-1, height, width, channels])
     return x
+
+# Generates a grid of items with size `chunk_shape`, padding is done with 0s (probably)
+def slice_2d(x, chunk_shape=(32,32)):
+    batch, height, width, channels = x.shape.as_list()
+    if len(x.shape.as_list()) != 4:
+      raise ValueError('Need 2D image with channel axis and batch size (4D-tensor)')
+    sx = width / chunk_shape[0]
+    sy = height / chunk_shape[1]
+
+    v = []
+    for ix in range(ceil(sx)):
+      for iy in range(ceil(sy)):
+        size_y = min(chunk_shape[1], height - (chunk_shape[1] * iy))
+        size_x = min(chunk_shape[0], width - (chunk_shape[0] * ix))
+        placeholder = K.spatial_2d_padding(
+                                          K.slice(x, (0, chunk_shape[1] * iy, chunk_shape[0] * ix, 0), (batch, size_y, size_x, channels)), 
+                                          padding=((0, chunk_shape[1] - size_y), (0, chunk_shape[0]- size_x)),
+                                          data_format='channels_last')
+        v.append(placeholder)
+
+    return v, ceil(sx), ceil(sy)
