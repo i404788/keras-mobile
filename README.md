@@ -47,7 +47,7 @@ Shuffle(b=10,d=.2)  CIFAR-10    0.829       743650
 Mobile (b=1.5)      CIFAR-10    0.664       13030
 ```
 
-Clustering is done with 150x150 samples, 10 epochs, batch size 32, Radam optimizer.
+Clustering is done with 150x150 samples, 10 epochs, batch size 64, Radam optimizer.
 Currently accuracy is not yet measured, and this table is just to signify which configurations work 'well enough'.
 ```
 Clustering (triplet loss)

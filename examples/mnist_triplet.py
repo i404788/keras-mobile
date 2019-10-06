@@ -34,7 +34,7 @@ def get_training_model(classifier, N=10):
                           negative_in], outputs=triplet_out)
 
     lamb = RAdam(learning_rate=0.0005)
-    model.compile(lamb, TripletLossNaive(N=N))
+    model.compile(lamb, TripletLossNaive(N=N, margin='softplus'))
 
     return model
 
@@ -123,7 +123,7 @@ if __name__ == "__main__":
 
     x_train, y_train, x_test, y_test = prepare_dataset()
 
-    b_size = 32
+    b_size = 64
     model.fit(x_train, y_train, batch_size=b_size, epochs=50, callbacks=[
               TensorBoardModelEmbedding('logs', 5, _model, x_test[:500], y_test[:500], True)])
 
