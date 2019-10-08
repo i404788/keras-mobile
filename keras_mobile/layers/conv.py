@@ -1,11 +1,14 @@
 from keras.layers import Layer, Embedding, Conv2D
 import keras.backend as K
 import numpy as np
+from math import ceil
+
 
 class VectorQuantizer(Layer):
     """
-       From VQ-VAE 
+       From VQ-VAE
     """
+
     def __init__(self, num_codes, **kwargs):
         super(VectorQuantizer, self).__init__(**kwargs)
         self.num_codes = num_codes
@@ -38,47 +41,8 @@ class VectorQuantizer(Layer):
         return [input_shape[:-1], input_shape]
 
 
-class GridSlice2D(Layer):
-  def __init__(self, chunk_shape=(32,32), **kwargs):
-      super(GridSlice2D, self).__init__(**kwargs)
-      self.chunk_shape = chunk_shape
-
-  def build(self, input_shape):
-      super(GridSlice2D, self).build(input_shape)
-      self.ishape = input_shape
-
-  def call(self, inputs):
-    batch, height, width, channels = self.ishape
-    # if len(x.shape.as_list()) != 4:
-    #   raise ValueError('Need 2D image with channel axis and batch size (4D-tensor)')
-    sx = width / self.chunk_shape[0]
-    sy = height / self.chunk_shape[1]
-
-    v = []
-    for ix in range(ceil(sx)):
-      for iy in range(ceil(sy)):
-        size_y = min(self.chunk_shape[1], height - (self.chunk_shape[1] * iy))
-        size_x = min(self.chunk_shape[0], width - (self.chunk_shape[0] * ix))
-        offset_x = self.chunk_shape[0] * ix
-        offset_y = self.chunk_shape[1] * iy
-        placeholder = K.spatial_2d_padding(
-                                          inputs[:, offset_y:size_y + offset_y, offset_x:size_x + offset_x, :],
-                                          padding=((0, self.chunk_shape[1] - size_y), (0, self.chunk_shape[0]- size_x)),
-                                          data_format='channels_last')
-        v.append(placeholder)
-    return v
-
-  def compute_output_shape(self, input_shape):
-      batch, height, width, channels = self.ishape
-      sx = ceil(width / self.chunk_shape[0])
-      sy = ceil(height / self.chunk_shape[1])
-      # Repeat shape sx * sy times
-      return (sx*sy) * [(batch, self.chunk_shape[1], self.chunk_shape[0], channels)]
-
 class GridReduction(Layer):
     """
-    DevDroplets.ga Research (c) 2019
-
     Reduce a variable sized image (sliced into a grid of `AxB` chunks) to a single `AxB` chunk with `filters*9` channels
 
     Usage:
@@ -92,63 +56,95 @@ class GridReduction(Layer):
     * * * select images of same size (after preprocessing if used)
     * * * update_grid
     * * * train_on_batch with images of the same input shape
-
     """
-    def __init__(self, grid_shape=(2,2), scale_max=16, filters=16, **kwargs):
+
+    def __init__(self, chunk_shape=(32, 32), scale_max=5, filters=16, **kwargs):
         super(GridReduction, self).__init__(**kwargs)
-        self.grid_shape = grid_shape
+        self.chunk_shape = chunk_shape
+        # self.grid_shape = grid_shape
         self.scale_max = scale_max
         self.filters = filters
-    
+
+    def add_layer(self, layer, input_shape):
+        layer.build(input_shape)
+        self.trainable_weights.extend(layer.trainable_weights)
+        return layer
+
     def build(self, input_shape):
         super(GridReduction, self).build(input_shape)
-        assert len(input_shape) is self.grid_shape[0] * self.grid_shape[1]
+        batch, height, width, channels = input_shape
 
-        self.c = []
-        for s in range(self.scale_max+1):
-            _c = Conv2D(self.filters, (3,3), padding='same')
-            if s is 0:
-                _c.build(input_shape[0])
-            else:
-                batch, height, width, channels = input_shape[0]
-                _c.build([batch, height, width, self.filters * 9])
-            _c.extend(self._c.trainable_weights)
+        c0 = self.add_layer(Conv2D(self.filters, (3, 3), padding='same'), [batch, self.chunk_shape[1], self.chunk_shape[1], channels])
+        self.c = [c0]
+        for s in range(self.scale_max):
+            _c = Conv2D(self.filters, (3, 3), padding='same')
+            _c.build([batch, self.chunk_shape[1],
+                        self.chunk_shape[1], self.filters * 9])
+            self.trainable_weights.extend(_c.trainable_weights)
             self.c.append(_c)
 
-    # Used to externally update the image size
-    def update_grid(self, grid_shape):
-        self.grid_shape = grid_shape
-
-    # reshape x to (?, n) shape
-    def reshape(x, n):
-        return [list(z) for z in zip(*[iter(x)]*n)]
-
-    # 3x3 superconvolution around (x,y)
-    def superconvolution(_sliced, c=(1,1)):
-        x, y = c
-        l = []
-        for i in range(3):             
-            for j in range(3):
-                l.append(_sliced[x-(i-1)][y-(j-1)])
-                
-        assert len(l) is 9
-        return K.concatenate(l)
-    
-    def column(matrix, i):
-        return [row[i] for row in matrix]
-    
     def call(self, inputs):
-        sy, sx = self.grid_shape
-        sliced = inputs
+        batch, height, width, channels = K.int_shape(inputs)
+        # if len(x.shape.as_list()) != 4:
+        #   raise ValueError('Need 2D image with channel axis and batch size (4D-tensor)')
+        sx = width / self.chunk_shape[0]
+        sy = height / self.chunk_shape[1]
+
+        #
+        # Stage 1: Slicing
+        #
+        v = []
+        for ix in range(ceil(sx)):
+            for iy in range(ceil(sy)):
+                size_y = min(self.chunk_shape[1],
+                            height - (self.chunk_shape[1] * iy))
+                size_x = min(self.chunk_shape[0],
+                            width - (self.chunk_shape[0] * ix))
+                offset_x = self.chunk_shape[0] * ix
+                offset_y = self.chunk_shape[1] * iy
+                placeholder = K.spatial_2d_padding(
+                                                inputs[:, offset_y:size_y + offset_y,
+                                                    offset_x:size_x + offset_x, :],
+                                                padding=(
+                                                    (0, self.chunk_shape[1] - size_y), (0, self.chunk_shape[0] - size_x)),
+                                                data_format='channels_last')
+                v.append(placeholder)
+
+        #
+        # Stage 2: Reduction
+        #
+        def reshape(x, n):
+            return [list(z) for z in zip(*[iter(x)]*n)]
+
+        # 3x3 superconvolution around (x,y)
+        def superconvolution(_sliced, c=(1, 1)):
+            x, y = c
+            l = []
+            for i in range(3):
+                for j in range(3):
+                    l.append(_sliced[x-(i-1)][y-(j-1)])
+
+            assert len(l) is 9
+            return K.concatenate(l)
+
+        def column(matrix, i):
+            return [row[i] for row in matrix]
+
+        sx = ceil(sx)
+        sy = ceil(sy)
+        sliced = v
+
+        # Preprocess to match filter sizes
+        sliced = [self.c[0](x) for x in sliced]
+
+        # Reduce grid using superconvolutions
         while sx > 1 or sy > 1:
             scale = max(sx, sy)
-            
+
             # convconcat
             if sx > 2 and sy > 2:
-                # Apply scaled conv
-                sliced = [self.c[scale-2](x) for x in sliced]
                 _sliced = reshape(sliced, sx)
-                
+
                 # apply convconcat
                 # can be visualized as a conv of 3x3
                 _new = []
@@ -157,31 +153,34 @@ class GridReduction(Layer):
                         x_check = i != 0 and i != len(_sliced)-1
                         y_check = j != 0 and j != len(_sliced[i])-1
                         if x_check and y_check:
-                            _new.append(superconvolution(_sliced, (j,i)))
-                    
-                sliced = _new
+                            _new.append(superconvolution(_sliced, (j, i)))
+
+                sliced = sliced = [self.c[(scale-1) // 2](x) for x in _new]
                 sx = sx-2
                 sy = sy-2
                 continue
-        
+
             _sliced = reshape(sliced, sx)
             if sx is 2:
                 # Mean each pair in y
-                sliced = [K.mean(x, axis=0) for x in _sliced]
+                sliced = [K.mean(K.stack(x), axis=0) for x in _sliced]
+                # sliced = [Add()(x) for x in _sliced]
                 sx = 1
                 continue
-                
+
             if sy is 2:
                 # Mean each pair in x
-                sliced = [K.mean(column(_sliced, i), axis=0) for i in range(sx)]
+                sliced = [K.mean(K.stack(column(_sliced, i)), axis=0)
+                                 for i in range(sx)]
+                # sliced = [Add()(column(_sliced, i)) for i in range(sx)]
                 sy = 1
-                continue 
+                continue
 
         return sliced[0]
 
     def compute_output_shape(self, input_shape):
-        batch, height, width, channels = input_shape[0]
-        return [batch, height, width, self.filters * 9]
+        batch, height, width, channels = input_shape
+        return [batch, self.chunk_shape[1], self.chunk_shape[0], self.filters * 9]
 
 
 def SharedScaledConv2D(Conv2D):
