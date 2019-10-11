@@ -43,7 +43,10 @@ class VectorQuantizer(Layer):
 
 class GridReduction(Layer):
     """
+    DevDroplets.ga Research (c) 2019
+
     Reduce a variable sized image (sliced into a grid of `AxB` chunks) to a single `AxB` chunk with `filters*9` channels
+    Note: this is a dynamic graph so you need to create a model for each input shape, but the layer can be shared between models (of different input_shapes)
 
     Usage:
     * Get a `CxD` image, split it into `AxB` chunks (See GridSlice2D)
